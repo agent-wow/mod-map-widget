@@ -1,0 +1,378 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+:root {
+    color-scheme: dark;
+    --mini-size: 240px;
+    --map-width: 1000px;
+    --map-height: 620px;
+    --font: "Trebuchet MS", Arial, sans-serif;
+    --gold: #ddc188;
+    --muted: #aaa;
+    --ink: #eee;
+    --line: rgba(255, 255, 255, .18);
+    --panel: linear-gradient(120deg, #292929eb, #111111e6 70%);
+    --frame: var(--panel);
+    --frame-border: #a9956a;
+    --surface: rgba(255, 255, 255, .035);
+    --control: rgba(10, 10, 10, .5);
+    --hover: rgba(255, 255, 255, .06);
+    --selected: rgba(255, 255, 255, .1);
+    --menu: #1b1b1b;
+    --menu-selected: #3c3528;
+}
+* {
+    box-sizing: border-box;
+}
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: transparent;
+}
+body {
+    color: var(--ink);
+    font: 13px/1.5 var(--font);
+}
+button, select, input {
+    font: inherit;
+}
+button, select {
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--control);
+    color: var(--ink);
+    cursor: pointer;
+}
+button:hover, select:hover, summary:hover {
+    border-color: var(--gold);
+    background-color: var(--hover);
+}
+/* Native OBS/CEF popups need opaque colors; the translucent control background is not inherited. */
+select, select option, select optgroup {
+    color-scheme: dark;
+    background-color: var(--menu);
+    color: var(--ink);
+}
+select optgroup {
+    color: var(--gold);
+    font-style: normal;
+}
+select option {
+    font-weight: normal;
+}
+select:hover, select option:checked {
+    background-color: var(--menu-selected);
+    color: var(--gold);
+}
+button:focus-visible, select:focus-visible, summary:focus-visible, input:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+}
+button.active {
+    color: var(--gold);
+    border-color: var(--frame-border);
+    background: var(--selected);
+}
+#widget {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    width: max-content;
+    max-width: 100vw;
+    padding: 8px;
+}
+.minimap {
+    position: relative;
+    flex: none;
+    width: calc(var(--mini-size) + 60px);
+    text-align: center;
+}
+.minimap header {
+    height: 26px;
+    padding: 0 12px;
+    overflow: hidden;
+    color: #f4ddb0;
+    font-size: 15px;
+    font-weight: bold;
+    line-height: 26px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 1px 1px #000, -1px -1px #000;
+}
+.minimap-surface {
+    position: relative;
+    width: var(--mini-size);
+    height: var(--mini-size);
+    margin: 4px auto 12px;
+}
+.minimap-ring {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border: 3px solid var(--frame-border);
+    border-radius: 50%;
+    background: var(--frame);
+    box-shadow: 0 0 0 2px #303539, 0 3px 9px #0009;
+}
+.minimap-ring::after {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px #111, inset 0 0 8px #0008;
+    content: "";
+    pointer-events: none;
+}
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.mini-controls {
+    position: absolute;
+    inset: 0;
+    color: var(--muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 2px #000;
+    pointer-events: none;
+}
+.mini-controls button {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 2px solid var(--frame-border);
+    border-radius: 50%;
+    background: var(--frame);
+    color: var(--gold);
+    font-size: 19px;
+    line-height: 1;
+    transform: translate(-50%, -50%);
+    box-shadow: inset 0 0 0 1px #111, 0 0 0 2px #303539, 0 2px 4px #0009;
+    pointer-events: auto;
+}
+#mini-in {
+    left: 90.45%;
+    top: 79.39%;
+}
+#mini-out {
+    left: 79.39%;
+    top: 90.45%;
+}
+.mini-controls button:hover {
+    border-color: var(--gold);
+    box-shadow: inset 0 0 0 1px var(--gold);
+}
+#coords {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    padding: 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: rgba(0, 0, 0, .8);
+    color: var(--gold);
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+}
+.minimap-tools {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+.minimap-tools:empty {
+    display: none;
+}
+#terrain-status {
+    display: block;
+    max-width: 280px;
+    margin: 0 auto;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 14px;
+    text-shadow: 0 1px 2px #000;
+}
+.world-map {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    width: var(--map-width);
+    height: var(--map-height);
+    border: 2px solid var(--frame-border);
+    border-radius: 9px;
+    background: var(--frame);
+    box-shadow: inset 0 0 0 2px #ffffff1f, inset 0 0 20px #0009;
+}
+.map-controls {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid #544a34;
+    border-radius: 7px 7px 0 0;
+    background: var(--surface);
+}
+#map-select {
+    flex: 1;
+    min-width: 80px;
+}
+#floor-select {
+    max-width: 140px;
+}
+.map-viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    margin: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--control);
+}
+#world-canvas {
+    cursor: grab;
+    touch-action: none;
+}
+#world-canvas:active {
+    cursor: grabbing;
+}
+.art-status {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--muted);
+    text-align: center;
+    text-shadow: 0 1px 3px #000;
+    pointer-events: none;
+}
+#tooltip {
+    position: fixed;
+    z-index: 10;
+    max-width: 260px;
+    padding: 7px 11px;
+    border: 1px solid var(--frame-border);
+    border-radius: 3px;
+    background: rgba(0, 0, 0, .9);
+    color: var(--gold);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+}
+#settings {
+    position: relative;
+    flex: none;
+    z-index: 5;
+    border: 1px solid var(--frame-border);
+    border-radius: 3px;
+    background: var(--frame);
+    box-shadow: inset 0 0 0 1px #ffffff1f;
+    font-size: 11px;
+}
+summary {
+    padding: 5px 10px;
+    color: var(--gold);
+    cursor: pointer;
+}
+.tracking-options {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 280px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 90px);
+    overflow: auto;
+    border: 1px solid var(--frame-border);
+    border-radius: 3px;
+    background: var(--frame);
+    text-align: left;
+}
+.minimap-tools .tracking-options {
+    top: auto;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+}
+#settings details[open] summary {
+    background: var(--surface);
+}
+#filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px 8px;
+    padding: 10px;
+}
+#filters label, #quest-list label {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+#filters label:hover, #quest-list label:hover {
+    color: var(--gold);
+}
+#quest-list {
+    max-height: 230px;
+    padding: 0 10px 8px;
+    overflow: auto;
+}
+#quest-list:not(:empty) {
+    border-top: 1px solid var(--line);
+    padding-top: 6px;
+}
+#quest-list label {
+    margin: 5px 0;
+}
+#quest-list, .tracking-options {
+    scrollbar-width: thin;
+    scrollbar-color: #8888 #0003;
+}
+input[type="checkbox"] {
+    flex-shrink: 0;
+    margin: 0;
+    accent-color: var(--gold);
+}
+#connection {
+    position: absolute;
+    top: 48px;
+    left: 24px;
+    z-index: 4;
+    max-width: 265px;
+    padding: 2px 8px;
+    border: 1px solid #866d43;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, .9);
+    color: #d2b078;
+    font-size: 10px;
+    pointer-events: none;
+}
+#connection:empty {
+    display: none;
+}
+.inactive canvas {
+    filter: saturate(.55) brightness(.7);
+}
+#limits {
+    display: block;
+    padding: 0 10px;
+    color: var(--gold);
+}
+[hidden] {
+    display: none !important;
+}
+body[data-view="map"] #widget {
+    gap: 0;
+}
+body[data-view="map"] .world-map {
+    width: min(var(--map-width), calc(100vw - 16px));
+}

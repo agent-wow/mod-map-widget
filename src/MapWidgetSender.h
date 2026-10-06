@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#ifndef MOD_MAP_WIDGET_SENDER_H
+#define MOD_MAP_WIDGET_SENDER_H
+
+#include "MapWidgetHttp.h"
+#include <atomic>
+#include <condition_variable>
+#include <thread>
+
+namespace MapWidget
+{
+class Sender
+{
+public:
+    Sender(HttpOptions options, std::string source, std::string process, std::size_t queueBytes,
+        std::vector<Json> catalog);
+    ~Sender();
+    void Push(Snapshot snapshot);
+    void Stop();
+
+private:
+    void Run();
+    SnapshotQueue _queue;
+    std::unique_ptr<Transport> _transport;
+    std::unique_ptr<Transport> _catalogTransport;
+    std::vector<std::string> _catalog;
+    Time _nextDropDiagnostic{};
+    std::string _source;
+    std::string _process;
+    std::atomic<bool> _stopping{false};
+    std::atomic<std::int64_t> _deadline{0};
+    std::mutex _mutex;
+    std::condition_variable _wake;
+    std::thread _worker;
+};
+}
+
+#endif

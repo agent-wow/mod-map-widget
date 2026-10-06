@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Azeroth map widget</title><link rel="stylesheet" href="/widget.css">
+</head>
+<body>
+  <main id="widget">
+    <section id="mini" class="minimap" aria-label="Minimap">
+      <header id="zone">Awaiting character</header>
+      <div class="minimap-surface">
+        <div class="minimap-ring"><canvas id="mini-canvas" aria-label="Live minimap"></canvas></div>
+        <div class="mini-controls">
+          <button id="mini-in" title="Zoom in" aria-label="Zoom in">+</button>
+          <button id="mini-out" title="Zoom out" aria-label="Zoom out">−</button>
+          <span id="coords">—</span>
+        </div>
+      </div>
+      <div id="mini-tools" class="minimap-tools"></div>
+      <small id="terrain-status"></small>
+    </section>
+    <section id="world" class="world-map" aria-label="World map">
+      <header id="map-controls" class="map-controls">
+        <select id="map-select" aria-label="Map"><option>Waiting for maps…</option></select>
+        <select id="floor-select" aria-label="Floor"><option value="0">Surface</option></select>
+        <button id="follow">Follow player</button>
+        <button id="world-out" title="Zoom out">−</button><button id="world-in" title="Zoom in">+</button>
+      </header>
+      <div class="map-viewport"><canvas id="world-canvas" aria-label="Interactive world map"></canvas>
+        <span id="art-status" class="art-status"></span><span id="tooltip" role="tooltip" hidden></span></div>
+    </section>
+    <aside id="settings"><details><summary>Tracking &amp; quests</summary>
+      <div class="tracking-options">
+        <div id="filters"></div><div id="quest-list"></div><small id="limits"></small>
+      </div></details></aside>
+    <div id="connection" role="status">Waiting for live map data…</div>
+  </main>
+  <script type="module" src="/widget.js"></script>
+</body>
+</html>

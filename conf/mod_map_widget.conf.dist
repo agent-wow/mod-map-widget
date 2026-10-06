@@ -1,0 +1,18 @@
+[worldserver]
+# All settings are startup-only. Empty Endpoint disables capture and the worker.
+MapWidget.Enable = 1
+MapWidget.Endpoint = ""
+MapWidget.BearerToken = ""
+MapWidget.CAFile = ""
+# Unique identity for each running worldserver. Defaults to realm-<RealmID>.
+# MapWidget.SourceId = "realm-1"
+# Optional comma-separated names or full GUIDs; empty captures all online characters.
+MapWidget.Characters = ""
+# Movement 50..1000ms, content >= movement and <=2000ms. Up to 32 captures per world update.
+MapWidget.UpdateIntervalMs = 100
+MapWidget.ContentIntervalMs = 1000
+# Serialized queue budget 8..256 MiB, at most 40000 pending character/panel records.
+MapWidget.QueueBytes = 67108864
+# Request timeout must be >= connect timeout and <=3000ms.
+MapWidget.ConnectTimeoutMs = 750
+MapWidget.RequestTimeoutMs = 1500

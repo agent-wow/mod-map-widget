@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { afterEach, expect, test } from "bun:test";
-import { batch, catalogChunk } from "../examples/fixtures.ts";
+import { batch, catalogChunk, panelData } from "../examples/fixtures.ts";
 import { createReceiver } from "../src/receiver.ts";
 import { snapshotStream } from "../src/stream.ts";
 import { Store } from "../src/store.ts";
@@ -32,6 +32,29 @@ test("authenticated ingestion, atomic validation, catalogue replay, discovery an
   const catalog = await fetch(new URL("/api/catalog?source=realm-1&process=demo-process&revision=demo-process",
     r.server.url));
   expect((await catalog.json()).areas.length).toBeGreaterThan(0);
+});
+test("moving NPC headings do not interrupt an idle character's presence heartbeats", async () => {
+  let now = 0;
+  const r = createReceiver({ host: "127.0.0.1", port: 0, store: new Store(() => now) });
+  running.push(r);
+  expect((await post(r, "/catalogs", catalogChunk())).status).toBe(204);
+  expect((await post(r, "/maps", batch())).status).toBe(204);
+  for (const facing of [-.5, -1, -2, -3, -Math.PI, Math.fround(2 * Math.PI), .5]) {
+    now += 1000;
+    const next = batch(now);
+    const markers = next.updates[1]!, presence = next.updates.at(-1)!;
+    const data = panelData().markers;
+    data.markers[0]!.facing = facing;
+    markers.data = data;
+    presence.data = { presence: "online", revisions: { motion: "1", markers: markers.sequence, quests: "3" } };
+    next.updates = [markers, presence];
+    expect((await post(r, "/maps", next)).status).toBe(204);
+    const view = r.store.view("realm-1", "Alice")!;
+    expect(view.stale).toBe(false);
+    expect(view.age_ms).toBe(0);
+    expect(view.panels.motion?.sequence).toBe("1");
+    expect(view.panels.motion?.stale).toBe(false);
+  }
 });
 test("invalid media, JSON, selectors, methods, and paths fail without affecting state", async () => {
   const r = start();

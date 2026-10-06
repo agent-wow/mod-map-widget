@@ -76,8 +76,9 @@ export const sequence = (v: unknown): v is string => typeof v === "string" &&
   /^[1-9][0-9]{0,19}$/.test(v) && BigInt(v) <= 18446744073709551615n;
 const revision = (v: unknown): v is string => typeof v === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(v);
 function position(v: unknown): v is Obj {
+  // Core spline headings can be negative; float rounding can also put a full turn just above 2π.
   return object(v) && int(v.map) && int(v.instance) && int(v.phase) && num(v.x) && num(v.y) && num(v.z) &&
-    num(v.facing, 0, Math.PI * 2) && int(v.area) && int(v.zone) && (v.floor === null || int(v.floor, 0, 255));
+    num(v.facing) && int(v.area) && int(v.zone) && (v.floor === null || int(v.floor, 0, 255));
 }
 function actor(v: unknown): boolean {
   return position(v) && identity(v.guid) && text(v.name) && ["player", "group", "corpse"].includes(v.kind as string);

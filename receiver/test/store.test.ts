@@ -16,6 +16,25 @@ describe("schema and state", () => {
     data.quests.quests.push(data.quests.quests[0]!);
     expect(isPanelData("quests", data.quests)).toBe(false);
   });
+  test("core headings accept signed radians and float-rounded full turns for every position", () => {
+    for (const facing of [-Math.PI, -.5, 0, Math.fround(2 * Math.PI)]) {
+      const data = panelData();
+      data.motion.player.facing = facing;
+      data.motion.group[0]!.facing = facing;
+      data.motion.corpse = { ...data.motion.player, kind: "corpse" };
+      data.markers.markers[0]!.facing = facing;
+      expect(isPanelData("motion", data.motion)).toBe(true);
+      expect(isPanelData("markers", data.markers)).toBe(true);
+    }
+  });
+  test("invalid headings still reject motion and marker panels", () => {
+    for (const facing of [NaN, Infinity, -Infinity, 1e6 + 1, -1e6 - 1, "0", null]) {
+      const data = panelData();
+      expect(isPanelData("motion", { ...data.motion, player: { ...data.motion.player, facing } })).toBe(false);
+      expect(isPanelData("markers", { ...data.markers,
+        markers: [{ ...data.markers.markers[0], facing }] })).toBe(false);
+    }
+  });
   test("catalogue-required response and atomic chunk publication recover receiver restarts", () => {
     const store = new Store(); expect(() => store.ingest(batch())).toThrow("catalog_required");
     expect(store.view("realm-1", "Alice")).toBeNull();

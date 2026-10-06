@@ -46,6 +46,8 @@ in [examples/fixtures.ts](examples/fixtures.ts). An envelope has `schema_version
 Presence data contains `presence` (`online`, `offline`, `unavailable`) and, when online, the three
 panel `revisions`. Catalogue envelopes contain `revision`, `chunk_index`, `chunk_count`, and `entries`;
 entry kinds are `areas`, `continents`, `floors`, and `transforms`.
+Position `facing` values are finite radians and need not be normalized to 0–2π: core spline movement
+can produce negative headings, and single-precision full turns can round slightly above 2π.
 
 Ordering is per source/process/character/panel. A fresh new process retires the old process; delayed
 old-process packets cannot reactivate it. Capture age is added to receiver elapsed time, so retries

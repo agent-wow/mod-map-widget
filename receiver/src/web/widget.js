@@ -13,8 +13,6 @@ const motionFreshness = new MotionFreshness();
 document.body.dataset.view = mode;
 /** @type {HTMLElement} */ (document.getElementById("mini")).hidden = mode === "map";
 /** @type {HTMLElement} */ (document.getElementById("world")).hidden = mode === "minimap";
-/** @type {HTMLElement} */ (document.getElementById(mode === "minimap" ? "mini-tools" : "map-controls"))
-  .append(/** @type {HTMLElement} */ (document.getElementById("settings")));
 /** @type {View | null} */ let view = null;
 /** @type {EventSource | null} */ let connection = null;
 /** @type {ReturnType<typeof setTimeout> | undefined} */ let timer;

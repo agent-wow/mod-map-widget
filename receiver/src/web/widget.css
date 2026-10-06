@@ -180,16 +180,6 @@ canvas {
     transform: translate(-50%, -50%);
     white-space: nowrap;
 }
-.minimap-tools {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin: 4px 0;
-}
-.minimap-tools:empty {
-    display: none;
-}
 #terrain-status {
     display: block;
     max-width: 280px;
@@ -293,13 +283,6 @@ summary {
     border-radius: 3px;
     background: var(--frame);
     text-align: left;
-}
-.minimap-tools .tracking-options {
-    top: auto;
-    bottom: calc(100% + 6px);
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
 }
 #settings details[open] summary {
     background: var(--surface);

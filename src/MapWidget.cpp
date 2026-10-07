@@ -6,6 +6,7 @@
 #include "WorldPacket.h"
 #include "MapWidgetSender.h"
 #include "Config.h"
+#include "WidgetWatch.h"
 #include "CryptoRandom.h"
 #include "Log.h"
 #include "Player.h"
@@ -53,6 +54,7 @@ struct Track
     Time NextContent{};
     std::map<std::string, std::pair<std::string, Time>> Sent;
     Json Revisions = Json::object();
+    Json WatchTarget;
 };
 
 struct Observations
@@ -192,6 +194,9 @@ public:
         if (!_sender)
             return;
         auto now = Now();
+        bool checkWatch = now >= _nextWatch;
+        if (checkWatch)
+            _nextWatch = now + Milliseconds(250);
         // World::Update calls this after MapMgr joins its workers. Pointers remain local to this call.
         std::vector<Player*> players;
         for (auto const& [account, session] : sWorldSessionMgr->GetAllSessions())
@@ -199,7 +204,24 @@ public:
             static_cast<void>(account);
             auto player = session->GetPlayer();
             if (player && !session->PlayerLogout() && Allowed(player))
+            {
                 players.push_back(player);
+                auto guid = player->GetGUID().ToString();
+                if (!_tracked.contains(guid) && _tracked.size() >= 10000)
+                    continue;
+                auto& track = _tracked[guid];
+                if (checkWatch)
+                {
+                    auto target = WidgetWatch::Capture<Json>(player);
+                    if (target != track.WatchTarget)
+                    {
+                        track.WatchTarget = std::move(target);
+                        Push(player, "presence", {{"presence", player->IsInWorld() && !player->IsBeingTeleported()
+                            && track.Revisions.size() == 3
+                            ? "online" : "unavailable"}, {"revisions", track.Revisions}}, now);
+                    }
+                }
+            }
         }
         if (players.empty())
             return;
@@ -326,6 +348,8 @@ private:
 
     std::uint64_t Push(Player* player, std::string const& panel, Json data, Time now)
     {
+        if (panel == "presence")
+            data["watch_target"] = WidgetWatch::Capture<Json>(player, data["presence"] == "offline");
         auto guid = player->GetGUID().ToString();
         _sender->Push({guid + "/" + panel, ++_sequence, now, {{"guid", guid}, {"name", player->GetName()},
             {"panel", panel}, {"catalog_revision", _process}, {"data", std::move(data)}}});
@@ -348,6 +372,7 @@ private:
     uint32 _interval = 100;
     uint32 _contentInterval = 1000;
     Time _nextError{};
+    Time _nextWatch{};
 };
 
 class World final : public WorldScript

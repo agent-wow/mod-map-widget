@@ -4,6 +4,29 @@ Live, fully revealed minimap and world-map overlays for OBS, with WotLK-style fr
 independent AzerothCore C++ module, a Bun receiver, and transparent browser widgets. No core patch,
 SQL installation, client addon, sibling module, or frontend build is required.
 
+## Follow a watch observer
+
+Append `follow=watch` to select an observer's current `mod-watch` assignment:
+
+```text
+http://127.0.0.1:3003/widget?source=realm-1&character=Observer&follow=watch&view=both
+```
+
+Use the observer's name or `guid`, not the target's. Names resolve once to an observer GUID;
+retargeting with `.watch` switches the widget automatically, including across browser reconnects.
+`.unwatch`, disabling watch, or observer logout returns the widget to the observer. An offline,
+transferring, or temporarily unobservable target keeps its assignment. Missing target data shows a
+waiting state; stale observer data clears the display until fresh assignment data arrives. Each
+observer and source is independent, and only the direct assignment is followed.
+
+Upgrade `mod-watch`, this module, and its receiver together through your normal deployment workflow.
+The integration uses an optional header from the sibling `modules/mod-watch` directory at compilation;
+there is no linked module dependency, additional receiver, or realm database change. Without that
+header, with watch disabled, or with a legacy publisher, following displays the selected observer.
+Omitting `follow` always keeps the original fixed-character behavior.
+
+If the character allowlist is configured, include both the observer and every target to be displayed.
+
 ## Installation
 
 Place this directory at `modules/mod-map-widget`. AzerothCore discovers its scripts, configuration,

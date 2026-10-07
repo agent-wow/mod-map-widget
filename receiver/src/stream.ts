@@ -5,7 +5,7 @@ import type { Store } from "./store.ts";
 
 // Pull at most one panel at a time. Undelivered changes coalesce in Store, never in an event history.
 export function snapshotStream(store: Store, source: string, guid: string, signal: AbortSignal,
-  onClose: () => void = () => {}, panel: Panel | "all" = "all", highWaterMark = 4 * 1024 * 1024) {
+  onClose: () => void = () => {}, panel: Panel | "all" = "all", highWaterMark = 4 * 1024 * 1024, follow = false) {
   let closed = false;
   let controller: ReadableStreamDefaultController<Uint8Array>;
   let unsubscribe = () => {};
@@ -23,7 +23,7 @@ export function snapshotStream(store: Store, source: string, guid: string, signa
     unsubscribe(); signal.removeEventListener("abort", close); onClose();
   };
   const close = () => { if (!closed) { cleanup(); controller.close(); } };
-  function send(event: string, value: unknown) {
+  function send(event: string, value: unknown, commit: () => void = () => {}) {
     const bytes = encoder.encode(event ? `event: ${event}\ndata: ${JSON.stringify(value)}\n\n` : ": keepalive\n\n");
     if (bytes.length > highWaterMark) { close(); return false; }
     if ((controller.desiredSize ?? 0) < bytes.length) {
@@ -32,32 +32,36 @@ export function snapshotStream(store: Store, source: string, guid: string, signa
       return false;
     }
     blocked = 0;
+    // Bun may pull synchronously during enqueue; publish state before exposing the event.
+    commit();
     controller.enqueue(bytes);
     lastPing = performance.now();
     return true;
   }
   function pump() {
     if (closed) return;
-    const view = store.view(source, guid, panel);
+    const view = store.view(source, guid, panel, follow);
     if (!view) {
-      if (identity !== "waiting" && send("snapshot", null)) { identity = "waiting"; delivered.clear(); header = ""; }
+      if (identity !== "waiting") send("snapshot", null, () => {
+        identity = "waiting"; delivered.clear(); header = "";
+      });
     } else {
-      const nextIdentity = `${view.process_id}:${view.catalog_revision}`;
+      const nextIdentity = `${view.process_id}:${view.catalog_revision}:${view.guid}`;
       const nextHeader = `${view.sequence}:${view.presence}:${view.stale}`;
       const base = { ...view, panels: {} };
       if (identity !== nextIdentity) {
-        if (send("snapshot", base)) { identity = nextIdentity; header = nextHeader; delivered.clear(); }
+        send("snapshot", base, () => { identity = nextIdentity; header = nextHeader; delivered.clear(); });
         return;
       }
       if (header !== nextHeader) {
-        if (send("presence", base)) header = nextHeader;
+        send("presence", base, () => { header = nextHeader; });
         return;
       }
       for (const p of PANELS) {
         const data = view.panels[p];
         const signature = data ? `${data.sequence}:${data.stale}` : "";
         if (data && delivered.get(p) !== signature) {
-          if (send("panel", { panel: p, ...data })) delivered.set(p, signature);
+          send("panel", { panel: p, ...data }, () => { delivered.set(p, signature); });
           return;
         }
       }

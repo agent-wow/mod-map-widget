@@ -10,6 +10,7 @@ export const MAX_BODY = 8 * 1024 * 1024;
 const encoder = new TextEncoder();
 const assets = new Map([
   ["/widget", ["widget.html", "text/html; charset=utf-8"]],
+  ["/follow.js", ["follow.js", "text/javascript; charset=utf-8"]],
   ["/widget.js", ["widget.js", "text/javascript; charset=utf-8"]],
   ["/render.js", ["render.js", "text/javascript; charset=utf-8"]],
   ["/motion-state.js", ["motion-state.js", "text/javascript; charset=utf-8"]],
@@ -124,10 +125,11 @@ export function createReceiver(options: ReceiverOptions = {}) {
         }
         if (["/api/map", "/api/map/stream"].includes(url.pathname)) {
           const { source, guid } = store.resolve(url.searchParams);
+          const follow = url.searchParams.get("follow") === "watch";
           const panel = url.searchParams.get("panel") ?? "all";
           if (panel !== "all" && !PANELS.includes(panel as Panel)) return failure(400, "Invalid panel");
           if (url.pathname === "/api/map") {
-            return Response.json(store.view(source, guid, panel as Panel | "all"), {
+            return Response.json(store.view(source, guid, panel as Panel | "all", follow), {
               headers: { "Cache-Control": "no-store" },
             });
           }
@@ -135,7 +137,7 @@ export function createReceiver(options: ReceiverOptions = {}) {
           server.timeout(request, 0);
           let close = () => {};
           const connection = snapshotStream(store, source, guid, request.signal, () => streams.delete(close),
-            panel as Panel | "all");
+            panel as Panel | "all", undefined, follow);
           close = connection.close;
           if (!connection.closed) streams.add(close);
           return new Response(connection.stream, { headers: { "Content-Type": "text/event-stream",

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 import { createHash } from "node:crypto";
 import { PANELS, STALE_MS } from "./schema.ts";
+import { validFollow } from "./watch.ts";
 import type { Batch, Catalog, CatalogChunk, CatalogEntry, Panel, PanelData, PresenceData, Update, View }
   from "./schema.ts";
 
@@ -163,7 +164,7 @@ export class Store {
     const source = params.get("source");
     const guid = params.get("guid");
     const character = params.get("character");
-    if (!source || source.length > 256 || Boolean(guid) === Boolean(character) ||
+    if (!validFollow(params) || !source || source.length > 256 || Boolean(guid) === Boolean(character) ||
       params.getAll("source").length !== 1 || params.getAll("guid").length > 1 ||
       params.getAll("character").length > 1 || (guid ?? character ?? "").length > 256) {
       throw new SelectionError(400, "Select a source and one character name or GUID");
@@ -174,7 +175,16 @@ export class Store {
     if (found.length > 1) throw new SelectionError(409, "Ambiguous character name; use a GUID");
     return { source, guid: found[0]!.guid };
   }
-  view(sourceId: string, guid: string, panel: Panel | "all" = "all"): View | null {
+  watchedGuid(source: string, observer: string): string | null {
+    const view = this.view(source, observer);
+    if (!view || view.stale) return null;
+    return view.presence === "offline" ? observer : view.watch_target?.guid ?? observer;
+  }
+  view(sourceId: string, guid: string, panel: Panel | "all" = "all", follow = false): View | null {
+    if (follow) {
+      const selected = this.watchedGuid(sourceId, guid);
+      return selected === null ? null : this.view(sourceId, selected, panel);
+    }
     const source = this.sources.get(sourceId);
     const e = source?.entries.get(guid);
     if (!source || !e) return null;
@@ -186,7 +196,9 @@ export class Store {
     const contentTime = Math.min(now, lastObserved + (presence === "online" ? STALE_MS : 0));
     const result: View = { source_id: sourceId, process_id: e.process, guid, name: e.name, presence,
       stale: e.process !== source.process || (presence !== "offline" && age >= STALE_MS), age_ms: age,
-      catalog_revision: e.revision, sequence: e.sequence, revisions, panels: {} };
+      catalog_revision: e.revision, sequence: e.sequence,
+      watch_target: e.presence ? (e.presence.update.data as PresenceData).watch_target ?? null : null,
+      revisions, panels: {} };
     for (const p of PANELS) {
       if (panel !== "all" && panel !== p) continue;
       const value = e.panels.get(p);

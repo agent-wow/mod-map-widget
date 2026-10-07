@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
+import { resolveObserver, validFollow, SelectionError } from "./follow.js";
 import { Maps } from "./render.js";
 import { MotionFreshness } from "./motion-state.js";
 /** @typedef {import('../schema.ts').View} View */
 /** @typedef {import('../schema.ts').Panel} Panel */
 const params = new URLSearchParams(location.search);
+const follow = params.get("follow") === "watch";
 const source = params.get("source"), character = params.get("character");
 let guid = params.get("guid");
 const mode = params.get("view") || "both";
@@ -52,10 +54,14 @@ function update() {
 }
 /** @param {View | null} data */
 function snapshot(data) {
-  if (!data || !view || view.process_id !== data.process_id || view.catalog_revision !== data.catalog_revision) {
+  if (!data || !view || view.guid !== data.guid || view.process_id !== data.process_id ||
+    view.catalog_revision !== data.catalog_revision) {
     sequences.clear(); maps.markers = []; maps.setQuests([]);
     maps.motion = null; maps.previous = null; maps.frozen = null;
     maps.catalog = null; catalogKey = "";
+    maps.follow = true; maps.zoom = 1; maps.pan = { x: 0, y: 0 }; maps.hits = [];
+    document.getElementById("tooltip")?.setAttribute("hidden", "");
+    const zone = document.getElementById("zone"); if (zone) zone.textContent = "";
     maps.clear();
   }
   view = data; received = performance.now(); update();
@@ -67,7 +73,9 @@ function schedule() {
 }
 async function connect() {
   try {
+    guid = await resolveObserver(source, guid, character, follow);
     const query = new URLSearchParams({ source: source || "" });
+    if (follow) query.set("follow", "watch");
     query.set(guid ? "guid" : "character", guid || character || "");
     const response = await fetch(`/api/map?${query}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
     if (!response.ok) {
@@ -76,21 +84,36 @@ async function connect() {
       throw new Error("Waiting");
     }
     const data = /** @type {View | null} */ (await response.json());
-    if (data) { guid = data.guid; query.delete("character"); query.set("guid", guid); }
+    if (data && !follow) guid = data.guid;
+    if (guid) { query.delete("character"); query.set("guid", guid); }
     snapshot(data);
-    connection?.close(); connection = new EventSource(`/api/map/stream?${query}`);
-    connection.onopen = () => { failures = 0; };
-    connection.addEventListener("snapshot", event => snapshot(JSON.parse(event.data)));
-    connection.addEventListener("presence", event => {
-      const data = /** @type {View} */ (JSON.parse(event.data));
-      view = { ...data, panels: view?.panels ?? {} }; received = performance.now(); update();
+    connection?.close();
+    const current = new EventSource(`/api/map/stream?${query}`); connection = current;
+    current.onopen = () => { if (connection !== current || stopped) return; failures = 0; };
+    current.addEventListener("snapshot", event => {
+      if (connection === current && !stopped) snapshot(JSON.parse(event.data));
     });
-    connection.addEventListener("panel", event => {
+    current.addEventListener("presence", event => {
+      if (connection !== current || stopped) return;
+      const data = /** @type {View} */ (JSON.parse(event.data));
+      view = { ...data, panels: view?.guid === data.guid ? view.panels : {} }; received = performance.now(); update();
+    });
+    current.addEventListener("panel", event => {
+      if (connection !== current || stopped) return;
       const data = /** @type {import('../schema.ts').PanelView & {panel:Panel}} */ (JSON.parse(event.data));
       if (view) { view.panels[data.panel] = data; update(); }
     });
-    connection.onerror = () => { connection?.close(); schedule(); };
-  } catch { schedule(); }
+    current.onerror = () => {
+      if (connection !== current || stopped) return;
+      current.close(); schedule();
+    };
+  } catch (error) {
+    if (error instanceof SelectionError) {
+      status.textContent = error.message;
+      if ([400, 409].includes(error.status)) { stopped = true; return; }
+    }
+    schedule();
+  }
 }
 let last = 0;
 /** @param {number} now */
@@ -108,7 +131,8 @@ function animate(now) {
   }
   if (!stopped) requestAnimationFrame(animate);
 }
-if (!source || Boolean(guid) === Boolean(character) || !["minimap", "map", "both"].includes(mode)) {
+if (!validFollow(params) || !source || Boolean(guid) === Boolean(character) ||
+  !["minimap", "map", "both"].includes(mode)) {
   status.textContent = "Select /widget?source=realm-1&character=Alice&view=minimap";
 } else { void connect(); requestAnimationFrame(animate); }
 window.addEventListener("pagehide", () => { stopped = true; connection?.close(); clearTimeout(timer); });
